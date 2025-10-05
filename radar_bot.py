@@ -8,7 +8,7 @@ load_dotenv()
 HELIUS_API_KEY   = os.getenv("HELIUS_API_KEY", "")
 TELEGRAM_TOKEN   = os.getenv("TELEGRAM_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
-EXPECTED_AUTH = os.getenv("WEBHOOK_AUTH_HEADER", "")
+EXPECTED_AUTH = os.getenv("EXPECTED_AUTH", "")
 
 
 # ---------- thresholds (tune later) ----------
@@ -199,22 +199,15 @@ def format_msg(snapshot, score):
 # ---------- Helius webhook endpoint ----------
 @app.route("/webhook/helius", methods=["POST"])
 def helius_webhook():
-    incoming = request.headers.get("Authorization", "") or request.headers.get("authorization") or ""
-    
-    # Force log to Render output
     import sys
+    incoming = request.headers.get("Authorization", "") or ""
+    
     print(">>> Incoming header:", repr(incoming), file=sys.stdout, flush=True)
     print(">>> Expected header:", repr(EXPECTED_AUTH), file=sys.stdout, flush=True)
 
     if incoming.strip() != EXPECTED_AUTH.strip():
         print("❌ Unauthorized - mismatch", file=sys.stdout, flush=True)
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    
-    data = request.json or {}
-    print("✅ Webhook payload:", data, file=sys.stdout, flush=True)
-    return jsonify({"ok": True, "results": data}), 200
-
-
 
     try:
         j = request.get_json(force=True, silent=True) or {}
@@ -222,35 +215,16 @@ def helius_webhook():
         results = []
 
         for mint in mints:
-            # Create the message
             msg = f"🚨 New mint detected: {mint}\n✅ Ready to flip on Phantom!"
-            
-            # Send to Telegram
-            ok, resp = send(msg)   # this uses your existing send() function
+            ok, resp = tg_send(msg)
             results.append({"mint": mint, "sent": ok, "resp": resp})
 
         return jsonify({"ok": True, "results": results}), 200
 
     except Exception as e:
-        print("Webhook error:", e)
+        print("Webhook error:", e, file=sys.stdout, flush=True)
         return jsonify({"ok": False, "error": str(e)}), 500
 
-
-    try:
-        # Parse the webhook safely
-        j = request.get_json(force=True, silent=True) or {}
-        mints = j.get("mints", [])
-        results = []
-
-        for mint in mints:
-            # For now: just acknowledge receipt (no crashes)
-            results.append({"mint": mint, "status": "received ✅"})
-
-        return jsonify({"ok": True, "results": results}), 200
-
-    except Exception as e:
-        print("Webhook error:", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 
