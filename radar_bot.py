@@ -199,14 +199,21 @@ def format_msg(snapshot, score):
 # ---------- Helius webhook endpoint ----------
 @app.route("/webhook/helius", methods=["POST"])
 def helius_webhook():
-    # ---- AUTH CHECK ----
     incoming = request.headers.get("Authorization", "") or request.headers.get("authorization") or ""
-    print("Incoming header:", repr(incoming))
-    print("Expected header:", repr(EXPECTED_AUTH))
     
+    # Force log to Render output
+    import sys
+    print(">>> Incoming header:", repr(incoming), file=sys.stdout, flush=True)
+    print(">>> Expected header:", repr(EXPECTED_AUTH), file=sys.stdout, flush=True)
+
     if incoming.strip() != EXPECTED_AUTH.strip():
-        print("❌ Unauthorized webhook attempt, got header:", incoming)
+        print("❌ Unauthorized - mismatch", file=sys.stdout, flush=True)
         return jsonify({"ok": False, "error": "unauthorized"}), 401
+    
+    data = request.json or {}
+    print("✅ Webhook payload:", data, file=sys.stdout, flush=True)
+    return jsonify({"ok": True, "results": data}), 200
+
 
 
     try:
