@@ -199,29 +199,28 @@ def format_msg(snapshot, score):
 # ---------- Helius webhook endpoint ----------
 @app.route("/webhook/helius", methods=["POST"])
 def helius_webhook():
-    # ---- AUTH CHECK ----
-    if EXPECTED_AUTH:
-        incoming = request.headers.get("Authorization") or request.headers.get("authorization") or ""
-        if incoming.strip() != EXPECTED_AUTH.strip():
-            print("❌ Unauthorized webhook attempt, got header:", incoming)
-            return jsonify({"ok": False, "error": "unauthorized"}), 401
+    # ---- AUTH CHECK ---
+    incoming = request.headers.get("Authorization") or request.headers.get("authorization") or ""
+    if incoming.strip() != EXPECTED_AUTH.strip():
+        print("❌ Unauthorized webhook attempt, got header:", incoming)
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    # ---- continue with your logic ----
-    j = request.get_json(force=True, silent=True) or {}
-    mints = j.get("mints", [])
-    results = []
-    for mint in mints:
-        if mint in seen_mints:
-            continue
-        seen_mints.add(mint)
-        snapshot, sc = analyze_mint(mint)
-        if should_alert(mint, sc["flipscore"]):
-            msg = format_msg(snapshot, sc)
-            ok, resp = tg_send(msg)
-            results.append({"mint": mint, "sent": ok, "resp": resp})
-        else:
-            results.append({"mint": mint, "sent": False, "reason": "score too low or throttled"})
-    return jsonify({"ok": True, "results": results}), 200
+    try:
+        # Parse the webhook safely
+        j = request.get_json(force=True, silent=True) or {}
+        mints = j.get("mints", [])
+        results = []
+
+        for mint in mints:
+            # For now: just acknowledge receipt (no crashes)
+            results.append({"mint": mint, "status": "received ✅"})
+
+        return jsonify({"ok": True, "results": results}), 200
+
+    except Exception as e:
+        print("Webhook error:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 
 # ---------- manual test ----------
