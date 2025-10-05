@@ -199,11 +199,30 @@ def format_msg(snapshot, score):
 # ---------- Helius webhook endpoint ----------
 @app.route("/webhook/helius", methods=["POST"])
 def helius_webhook():
-    # ---- AUTH CHECK ---
     incoming = request.headers.get("Authorization") or request.headers.get("authorization") or ""
     if incoming.strip() != EXPECTED_AUTH.strip():
         print("❌ Unauthorized webhook attempt, got header:", incoming)
         return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    try:
+        j = request.get_json(force=True, silent=True) or {}
+        mints = j.get("mints", [])
+        results = []
+
+        for mint in mints:
+            # Create the message
+            msg = f"🚨 New mint detected: {mint}\n✅ Ready to flip on Phantom!"
+            
+            # Send to Telegram
+            ok, resp = send(msg)   # this uses your existing send() function
+            results.append({"mint": mint, "sent": ok, "resp": resp})
+
+        return jsonify({"ok": True, "results": results}), 200
+
+    except Exception as e:
+        print("Webhook error:", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
     try:
         # Parse the webhook safely
